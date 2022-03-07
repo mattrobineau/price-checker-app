@@ -12,7 +12,7 @@ struct StoreTemplate {
     selector: String,
 }
 
-async fn get_price(product: &ProductDetail, store: &StoreTemplate) -> Result<f32, Box<dyn std::error::Error>> {
+async fn get_price(product: &ProductDetail, store: &StoreTemplate, rg: &Regex) -> Result<f32, Box<dyn std::error::Error>> {
     let response = reqwest::get(&product.product_url).await?.text().await?;
 
     let document = Html::parse_document(&response);
@@ -21,7 +21,6 @@ async fn get_price(product: &ProductDetail, store: &StoreTemplate) -> Result<f32
     let element = document.select(&selector).next().unwrap();
     let mut price = element.inner_html();
 
-    let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
     let parsed_price = match rg.find(&price) {
         Some(p) => p.as_str(),
         None => {
@@ -39,16 +38,27 @@ async fn get_price(product: &ProductDetail, store: &StoreTemplate) -> Result<f32
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let resp = reqwest::get("https://yesterknight.ca")
-        .await?
-        .text()
-        .await?;
+    let sample_stores = vec![StoreTemplate {
+        store_key: "redbubble".to_string(),
+        selector: String::from("div[class^=DesktopProductPage__config] span span"),
+    }];
 
-    let document = Html::parse_document(&resp);
-    let selector = Selector::parse("h1").unwrap();
+    let sample_products = vec![ProductDetail {
+            price: 32,
+            product_url: String::from("https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735"),
+            store_key: String::from("redbubble"),
+        }];
 
-    let h1 = document.select(&selector).next().unwrap();
-    println!("warrior = {:?}", h1.inner_html().trim());
+    let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
+    for product in &sample_products {
+        let store = match sample_stores.iter().find(|s| s.store_key == product.store_key) {
+            Some(s) => s,
+            None => continue,
+        };
+
+        let price = get_price(&product, &store, &rg).await?;
+        println!("{}", price);
+    }
 
     Ok(())
 }
@@ -70,7 +80,8 @@ mod tests {
             selector: String::from("div[class^=DesktopProductPage__config] span span"),
         };
 
-        let x = match get_price(&product, &store).await {
+        let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
+        let x = match get_price(&product, &store, &rg).await {
             Ok(p) => p,
             Err(e) => {
                 println!("{}", e);
