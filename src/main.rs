@@ -1,8 +1,8 @@
 use notify_rust::Notification;
-use serde::{Deserialize, Serialize};
-use serde_json;
 use regex::Regex;
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
+use serde_json;
 
 #[derive(Serialize, Deserialize)]
 struct ProductDetail {
@@ -24,12 +24,15 @@ struct Root {
     stores: Vec<StoreTemplate>,
 }
 
-async fn get_price(product: &ProductDetail, store: &StoreTemplate, rg: &Regex) -> Result<f32, Box<dyn std::error::Error>> {
-    let response = reqwest::get(&product.product_url).await?.text().await?;
+async fn get_price(
+    product: &ProductDetail,
+    store: &StoreTemplate,
+    rg: &Regex,
+) -> Result<f32, Box<dyn std::error::Error>> {
 
+    let response = reqwest::get(&product.product_url).await?.text().await?;
     let document = Html::parse_document(&response);
     let selector = Selector::parse(&store.selector).unwrap();
-
     let element = document.select(&selector).next().unwrap();
     let mut price = element.inner_html();
 
@@ -56,7 +59,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
     for product in &root.products {
-        let store = match root.stores
+        let store = match root
+            .stores
             .iter()
             .find(|s| s.store_key == product.store_key)
         {
@@ -70,7 +74,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if price < product.price {
             Notification::new()
                 .summary("Price Alert")
-                .body(format!("{} has a lower price. Set price {}, New {}", product.product_name, product.price, price).as_str())
+                .body(
+                    format!(
+                        "{} has a lower price. Set price {}, New {}",
+                        product.product_name, product.price, price
+                    )
+                    .as_str(),
+                )
                 .show()
                 .unwrap();
         }
