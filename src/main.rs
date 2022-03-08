@@ -1,29 +1,13 @@
+use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use regex::Regex;
 use scraper::{Html, Selector};
 
-static JSON: &str = r#"
-{
-  "products": [
-    {
-      "price": 70.00,
-      "product_url": "https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735",
-      "store_key": "redbubble"
-    }
-  ],
-  "stores": [
-    {
-      "store_key": "redbubble",
-      "selector": "div[class^=DesktopProductPage__config] span span"
-    }
-  ]
-}
-"#;
-
 #[derive(Serialize, Deserialize)]
 struct ProductDetail {
     price: f32,
+    product_name: String,
     product_url: String,
     store_key: String,
 }
@@ -66,7 +50,9 @@ async fn get_price(product: &ProductDetail, store: &StoreTemplate, rg: &Regex,) 
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let root: Root = serde_json::from_str(JSON).unwrap();
+    let json = tokio::fs::read_to_string("config.json").await?;
+
+    let root: Root = serde_json::from_str(&json).unwrap();
 
     let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
     for product in &root.products {
@@ -80,6 +66,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let price = get_price(&product, &store, &rg).await?;
         println!("{}", price);
+
+        if price < product.price {
+        Notification::new()
+            .summary("Price Alert")
+            .body(format!("{} has a lower price. Set price {}, New {}", product.product_name, product.price, price).as_str())
+            .show()
+            .unwrap();
+        }
     }
 
     Ok(())
@@ -93,6 +87,7 @@ mod tests {
     async fn get_price_from_site() {
         let product = ProductDetail {
             price: 32.0,
+            product_name: String::from("T-Shirt"),
             product_url: String::from("https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735"),
             store_key: String::from("redbubble"),
         };

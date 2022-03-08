@@ -1,0 +1,16 @@
+{
+  "products": [
+    {
+      "price": 70.00,
+      "product_name": "Cool T-Shirt",
+      "product_url": "https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735",
+      "store_key": "redbubble"
+    }
+  ],
+  "stores": [
+    {
+      "store_key": "redbubble",
+      "selector": "div[class^=DesktopProductPage__config] span span"
+    }
+  ]
+}
