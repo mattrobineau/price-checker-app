@@ -1,18 +1,50 @@
 use regex::Regex;
-use scraper::{ Html, Selector };
+use scraper::{Html, Selector};
+use serde::Deserialize;
+use serde_json;
 
+static JSON: &str = r#"
+{
+  "products": [
+    {
+      "product_name": "Cool T-Shirt",
+      "product_url": "https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735",
+      "store_key": "redbubble"
+    }
+  ],
+  "stores": [
+    {
+      "store_key": "redbubble",
+      "selector": "div[class^=DesktopProductPage__config] span span"
+    }
+  ]
+}
+"#;
+
+#[derive(Deserialize)]
 struct ProductDetail {
-    price: u32,
     product_url: String,
     store_key: String,
 }
 
+#[derive(Deserialize)]
 struct StoreTemplate {
     store_key: String,
     selector: String,
 }
 
-async fn get_price(product: &ProductDetail, store: &StoreTemplate, rg: &Regex) -> Result<f32, Box<dyn std::error::Error>> {
+#[derive(Deserialize)]
+struct Root {
+    products: Vec<ProductDetail>,
+    stores: Vec<StoreTemplate>,
+}
+
+async fn get_price(
+    product: &ProductDetail,
+    store: &StoreTemplate,
+    rg: &Regex,
+) -> Result<f32, Box<dyn std::error::Error>> {
+
     let response = reqwest::get(&product.product_url).await?.text().await?;
 
     let document = Html::parse_document(&response);
@@ -38,20 +70,14 @@ async fn get_price(product: &ProductDetail, store: &StoreTemplate, rg: &Regex) -
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let sample_stores = vec![StoreTemplate {
-        store_key: "redbubble".to_string(),
-        selector: String::from("div[class^=DesktopProductPage__config] span span"),
-    }];
+    let config: Root = serde_json::from_str(&JSON)?;
+    let rg = Regex::new(r"[\d+,]*\.\d+")?;
 
-    let sample_products = vec![ProductDetail {
-            price: 32,
-            product_url: String::from("https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735"),
-            store_key: String::from("redbubble"),
-        }];
-
-    let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
-    for product in &sample_products {
-        let store = match sample_stores.iter().find(|s| s.store_key == product.store_key) {
+    for product in &config.products {
+        let store = match config.stores
+            .iter()
+            .find(|s| s.store_key == product.store_key)
+        {
             Some(s) => s,
             None => continue,
         };
@@ -70,7 +96,6 @@ mod tests {
     #[tokio::test]
     async fn get_price_from_site() {
         let product = ProductDetail {
-            price: 32,
             product_url: String::from("https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735"),
             store_key: String::from("redbubble"),
         };
