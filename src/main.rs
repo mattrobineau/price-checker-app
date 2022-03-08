@@ -24,7 +24,7 @@ struct Root {
     stores: Vec<StoreTemplate>,
 }
 
-async fn get_price(product: &ProductDetail, store: &StoreTemplate, rg: &Regex,) -> Result<f32, Box<dyn std::error::Error>> {
+async fn get_price(product: &ProductDetail, store: &StoreTemplate, rg: &Regex) -> Result<f32, Box<dyn std::error::Error>> {
     let response = reqwest::get(&product.product_url).await?.text().await?;
 
     let document = Html::parse_document(&response);
@@ -68,11 +68,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", price);
 
         if price < product.price {
-        Notification::new()
-            .summary("Price Alert")
-            .body(format!("{} has a lower price. Set price {}, New {}", product.product_name, product.price, price).as_str())
-            .show()
-            .unwrap();
+            Notification::new()
+                .summary("Price Alert")
+                .body(format!("{} has a lower price. Set price {}, New {}", product.product_name, product.price, price).as_str())
+                .show()
+                .unwrap();
         }
     }
 
