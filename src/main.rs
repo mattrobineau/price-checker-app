@@ -55,9 +55,9 @@ async fn get_price(
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let json = tokio::fs::read_to_string("config.json").await?;
 
-    let root: Root = serde_json::from_str(&json).unwrap();
+    let root: Root = serde_json::from_str(&json)?;
 
-    let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
+    let rg = Regex::new(r"[\d+,]*\.\d+")?;
     for product in &root.products {
         let store = match root
             .stores
@@ -81,8 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .as_str(),
                 )
-                .show()
-                .unwrap();
+                .show()?;
         }
     }
 
