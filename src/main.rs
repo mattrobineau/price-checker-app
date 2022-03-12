@@ -31,10 +31,10 @@ async fn get_price(
 ) -> Result<f32, Box<dyn std::error::Error>> {
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:77.0) Gecko/20190101 Firefox/77.0")
-        .build().unwrap();
+        .build()?;
 
     let response = client.get(&product.product_url)
-        .send().await.unwrap().text().await.unwrap();
+        .send().await?.text().await?;
 
 //    let response = reqwest::get(&product.product_url).await?.text().await?;
     let document = Html::parse_document(&response);
