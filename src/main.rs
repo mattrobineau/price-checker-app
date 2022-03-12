@@ -29,8 +29,14 @@ async fn get_price(
     store: &StoreTemplate,
     rg: &Regex,
 ) -> Result<f32, Box<dyn std::error::Error>> {
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:77.0) Gecko/20190101 Firefox/77.0")
+        .build().unwrap();
 
-    let response = reqwest::get(&product.product_url).await?.text().await?;
+    let response = client.get(&product.product_url)
+        .send().await.unwrap().text().await.unwrap();
+
+//    let response = reqwest::get(&product.product_url).await?.text().await?;
     let document = Html::parse_document(&response);
     let selector = Selector::parse(&store.selector).unwrap();
     let element = document.select(&selector).next().unwrap();
@@ -116,5 +122,31 @@ mod tests {
         };
 
         assert_eq!(x, 55.31f32)
+    }
+
+    #[tokio::test]
+    async fn get_price_from_thebrick() {
+        let product = ProductDetail {
+            price: 32.0,
+            product_name: String::from("item"),
+            product_url: String::from("https://www.thebrick.com/products/adoro-genuine-leather-sofa-blue"),
+            store_key: String::from("thebrick"),
+        };
+
+        let store = StoreTemplate {
+            store_key: String::from("thebrick"),
+            selector: String::from("#productPrice"),
+        };
+
+        let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
+        let x = match get_price(&product, &store, &rg).await {
+            Ok(p) => p,
+            Err(e) => {
+                println!("{}", e);
+                0.00f32
+            }
+        };
+
+        assert_eq!(x, 3499.97f32)
     }
 }

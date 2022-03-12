@@ -11,6 +11,9 @@
     {
       "store_key": "redbubble",
       "selector": "div[class^=DesktopProductPage__config] span span"
-    }
+    },
+    {
+      "store_key": "thebrick",
+      "selector": "#productPrice"
   ]
 }
