@@ -3,6 +3,8 @@ use regex::Regex;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Serialize, Deserialize)]
 struct ProductDetail {
@@ -24,6 +26,31 @@ struct Root {
     stores: Vec<StoreTemplate>,
 }
 
+#[derive(Debug)]
+struct SelectorParseError {
+    details: String,
+}
+
+impl SelectorParseError {
+    fn new(msg: &str) -> SelectorParseError {
+        SelectorParseError {
+            details: msg.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for SelectorParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for SelectorParseError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
+
 async fn get_price(
     product: &ProductDetail,
     store: &StoreTemplate,
@@ -33,13 +60,27 @@ async fn get_price(
         .user_agent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:77.0) Gecko/20190101 Firefox/77.0")
         .build()?;
 
-    let response = client.get(&product.product_url)
-        .send().await?.text().await?;
+    let response = client
+        .get(&product.product_url)
+        .send()
+        .await?
+        .text()
+        .await?;
 
-//    let response = reqwest::get(&product.product_url).await?.text().await?;
     let document = Html::parse_document(&response);
-    let selector = Selector::parse(&store.selector).unwrap();
-    let element = document.select(&selector).next().unwrap();
+
+    let selector = match Selector::parse(&store.selector) {
+        Ok(s) => s,
+        Err(_e) => {
+            return Err(Box::new(SelectorParseError::new(
+                format!("Error parsing selector \"{}\"", store.selector).as_str(),
+            )))
+        }
+    };
+    let element = document
+        .select(&selector)
+        .next()
+        .expect("error in selector");
     let mut price = element.inner_html();
 
     let parsed_price = match rg.find(&price) {
@@ -74,8 +115,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None => continue,
         };
 
-        let price = get_price(&product, &store, &rg).await?;
-        println!("{}", price);
+        let price = match get_price(&product, &store, &rg).await {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
 
         if price < product.price {
             Notification::new()
@@ -98,55 +141,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn get_price_from_site() {
-        let product = ProductDetail {
-            price: 32.0,
-            product_name: String::from("T-Shirt"),
-            product_url: String::from("https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735"),
-            store_key: String::from("redbubble"),
-        };
+    macro_rules! get_price_test {
+        ($url:expr, $store:expr, $selector:expr, $price:expr) => {{
+            let product = ProductDetail {
+                price: 0.0,
+                product_name: "not_used".to_string(),
+                product_url: $url,
+                store_key: $store,
+            };
 
-        let store = StoreTemplate {
-            store_key: String::from("redbubble"),
-            selector: String::from("div[class^=DesktopProductPage__config] span span"),
-        };
+            let store = StoreTemplate {
+                store_key: $store,
+                selector: $selector,
+            };
 
-        let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
-        let x = match get_price(&product, &store, &rg).await {
-            Ok(p) => p,
-            Err(e) => {
-                println!("{}", e);
-                0.00f32
-            }
-        };
+            let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
+            let fetched_price = match get_price(&product, &store, &rg).await {
+                Ok(p) => p,
+                Err(e) => {
+                    println!("{}", e);
+                    0.00f32
+                }
+            };
 
-        assert_eq!(x, 55.31f32)
+            assert_eq!($price, fetched_price)
+        }};
     }
 
     #[tokio::test]
     async fn get_price_from_thebrick() {
-        let product = ProductDetail {
-            price: 32.0,
-            product_name: String::from("item"),
-            product_url: String::from("https://www.thebrick.com/products/adoro-genuine-leather-sofa-blue"),
-            store_key: String::from("thebrick"),
-        };
+        get_price_test!(
+            "https://www.thebrick.com/products/adoro-genuine-leather-sofa-blue".to_string(),
+            "thebrick".to_string(),
+            "#productPrice".to_string(),
+            3499.97f32
+        )
+    }
 
-        let store = StoreTemplate {
-            store_key: String::from("thebrick"),
-            selector: String::from("#productPrice"),
-        };
-
-        let rg = Regex::new(r"[\d+,]*\.\d+").unwrap();
-        let x = match get_price(&product, &store, &rg).await {
-            Ok(p) => p,
-            Err(e) => {
-                println!("{}", e);
-                0.00f32
-            }
-        };
-
-        assert_eq!(x, 3499.97f32)
+    #[tokio::test]
+    async fn get_price_from_site() {
+        get_price_test!(
+            "https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735".to_string(),
+            "redbubble".to_string(),
+            "div[class^=DesktopProductPage__config] span span".to_string(),
+            55.31f32
+        )
     }
 }
