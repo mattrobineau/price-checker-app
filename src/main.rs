@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .summary("Price Alert")
                 .body(
                     format!(
-                        "{} has a lower price. Set price {}, New {}",
+                        "{} has a lower price. Set price {:.2}, New {:.2}",
                         product.product_name, product.price, price
                     )
                     .as_str(),
@@ -171,17 +171,18 @@ mod tests {
     #[tokio::test]
     async fn get_price_from_thebrick() {
         get_price_test!(
-            "https://www.thebrick.com/products/adoro-genuine-leather-sofa-blue".to_string(),
+            "https://www.thebrick.com/products/kate-nightstand".to_string(),
             "thebrick".to_string(),
             "#productPrice".to_string(),
-            3499.97f32
+            279.00f32
         )
     }
 
     #[tokio::test]
     async fn get_price_from_site() {
         get_price_test!(
-            "https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735".to_string(),
+            "https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735"
+                .to_string(),
             "redbubble".to_string(),
             "div[class^=DesktopProductPage__config] span span".to_string(),
             55.31f32
