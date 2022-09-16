@@ -16,6 +16,8 @@ struct ProductDetail {
 
 #[derive(Serialize, Deserialize)]
 struct StoreTemplate {
+    attr: Option<String>,
+    from_attr: bool,
     store_key: String,
     selector: String,
 }
@@ -81,12 +83,24 @@ async fn get_price(
         .select(&selector)
         .next()
         .expect("error in selector");
-    let mut price = element.inner_html();
+
+    let mut price = match store.from_attr {
+        true => element
+            .value()
+            .attr(store.attr.as_ref().expect("no attribute set"))
+            .expect(&format!(
+                "no attribute named {} found in element {}",
+                store.attr.as_ref().unwrap(),
+                store.selector
+            ))
+            .to_string(),
+        false => element.inner_html(),
+    };
 
     let parsed_price = match rg.find(&price) {
         Some(p) => p.as_str(),
         None => {
-            println!("regex did not find a match in {}", &price);
+            eprintln!("regex did not find a match in {}", &price);
             "0.00"
         }
     };
@@ -142,7 +156,7 @@ mod tests {
     use super::*;
 
     macro_rules! get_price_test {
-        ($url:expr, $store:expr, $selector:expr, $price:expr) => {{
+        ($url:expr, $store:expr, $selector:expr, $price:expr, $from_attr:expr, $attr:expr) => {{
             let product = ProductDetail {
                 price: 0.0,
                 product_name: "not_used".to_string(),
@@ -151,6 +165,8 @@ mod tests {
             };
 
             let store = StoreTemplate {
+                from_attr: $from_attr,
+                attr: $attr,
                 store_key: $store,
                 selector: $selector,
             };
@@ -159,7 +175,7 @@ mod tests {
             let fetched_price = match get_price(&product, &store, &rg).await {
                 Ok(p) => p,
                 Err(e) => {
-                    println!("{}", e);
+                    eprintln!("{}", e);
                     0.00f32
                 }
             };
@@ -168,24 +184,15 @@ mod tests {
         }};
     }
 
-    #[tokio::test]
-    async fn get_price_from_thebrick() {
-        get_price_test!(
-            "https://www.thebrick.com/products/kate-nightstand".to_string(),
-            "thebrick".to_string(),
-            "#productPrice".to_string(),
-            279.00f32
-        )
-    }
-
-    #[tokio::test]
-    async fn get_price_from_site() {
-        get_price_test!(
-            "https://www.redbubble.com/i/sweatshirt/The-Bodacious-Period-by-wytrab8/26255784.73735"
-                .to_string(),
-            "redbubble".to_string(),
-            "div[class^=DesktopProductPage__config] span span".to_string(),
-            55.31f32
-        )
-    }
+    // #[tokio::test]
+    // async fn get_price_from_thebrick() {
+    //     get_price_test!(
+    //         "https://www.thebrick.com/products/kate-nightstand".to_string(),
+    //         "thebrick".to_string(),
+    //         "#productPrice".to_string(),
+    //         279.00f32,
+    //         false,
+    //         None
+    //     )
+    // }
 }

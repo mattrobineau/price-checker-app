@@ -1,20 +1,34 @@
 {
   "products": [
     {
-      "price": 279.01,
-      "product_name": "Kate nightstand",
-      "product_url": "https://www.thebrick.com/products/kate-nightstand",
-      "store_key": "thebrick"
+      "price": 279.00,
+      "product_name": "Example Product",
+      "product_url": "https://www.store.example/products/example-product",
+      "store_key": "store"
+    },
+    {
+        "price": 329.99,
+        "product_name": "Example Product 2",
+        "product_url": "https://www.store-2.example/en-CA/p/801643",
+        "store_key": "store2"
     }
   ],
   "stores": [
     {
-      "store_key": "redbubble",
+      "from_attr": false,
+      "store_key": "store",
       "selector": "div[class^=DesktopProductPage__config] span span"
     },
     {
-      "store_key": "thebrick",
+      "from_attr": false,
+      "store_key": "store2",
       "selector": "#productPrice"
+    },
+    {
+      "from_attr": true,
+      "attr": "content",
+      "store_key": "store3",
+      "selector": "meta[name=product_price]"
     }
   ]
 }
